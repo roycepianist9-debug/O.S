@@ -381,8 +381,12 @@ function BudgetPanel({
   const spendPercent = Math.round((totalExpenses / monthlyBudget) * 100);
   const twelveMonthProjection = Array.from({ length: 12 }, (_, index) => {
     const seasonalVariance = index % 3 === 0 ? 90 : -20;
-    return Math.max(cashBalance - (index + 1) * (selectedCity.totalMonthlyCost + seasonalVariance), 0);
-  });
+    return selectedCity.totalMonthlyCost + seasonalVariance;
+  }).reduce<number[]>((balances, cost) => {
+    const previousBalance = balances.at(-1) ?? cashBalance;
+    balances.push(Math.max(previousBalance - cost, 0));
+    return balances;
+  }, []);
 
   return (
     <section className="panel budget-panel">
