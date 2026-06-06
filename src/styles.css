@@ -25,7 +25,9 @@ body {
 }
 
 button,
-a {
+a,
+input,
+select {
   font: inherit;
 }
 
@@ -77,19 +79,22 @@ button {
   gap: 8px;
 }
 
-.side-nav a {
+.side-nav button {
   display: flex;
   gap: 14px;
   align-items: center;
+  width: 100%;
   padding: 14px 16px;
   color: #d9def0;
+  text-align: left;
   text-decoration: none;
   border: 1px solid transparent;
   border-radius: 12px;
+  background: transparent;
 }
 
-.side-nav a.active,
-.side-nav a:hover {
+.side-nav button.active,
+.side-nav button:hover {
   color: #fff;
   border-color: rgba(139, 92, 246, 0.3);
   background: linear-gradient(135deg, rgba(124, 58, 237, 0.9), rgba(91, 33, 182, 0.5));
@@ -869,6 +874,177 @@ h1 {
   background: linear-gradient(135deg, #7c3aed, #4c1d95);
 }
 
+.data-page {
+  display: grid;
+  gap: 16px;
+}
+
+.data-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  padding: 28px;
+}
+
+.data-hero span {
+  color: #b993ff;
+  font-weight: 800;
+}
+
+.data-hero h2 {
+  max-width: 720px;
+  margin: 8px 0;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.data-hero p {
+  max-width: 680px;
+  margin-bottom: 0;
+  color: #aab3c9;
+}
+
+.data-hero button,
+.data-form button,
+.record-card button {
+  color: white;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #7c3aed, #4c1d95);
+}
+
+.data-hero button {
+  flex-shrink: 0;
+  padding: 14px 18px;
+}
+
+.data-stats,
+.data-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.data-stats {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.data-stat {
+  padding: 18px;
+}
+
+.data-stat span {
+  color: #aab3c9;
+  font-weight: 700;
+}
+
+.data-stat strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 1.6rem;
+}
+
+.data-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.data-panel {
+  padding: 0 20px 20px;
+}
+
+.data-panel-wide {
+  grid-column: 1 / -1;
+}
+
+.data-form {
+  display: grid;
+  gap: 12px;
+}
+
+.baseline-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.compact-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.data-form label,
+.data-form input,
+.data-form select {
+  min-width: 0;
+}
+
+.data-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.data-form label span {
+  color: #aab3c9;
+  font-weight: 700;
+}
+
+.data-form input,
+.data-form select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  color: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.76);
+}
+
+.data-form button {
+  min-height: 46px;
+  padding: 0 16px;
+}
+
+.record-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.record-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.record-card strong,
+.record-card small {
+  display: block;
+}
+
+.record-card small {
+  margin-top: 4px;
+  color: #aab3c9;
+  line-height: 1.35;
+}
+
+.record-card em {
+  color: #c4b5fd;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.record-card button {
+  padding: 8px 10px;
+  background: rgba(148, 163, 184, 0.12);
+}
+
 @media (max-width: 1320px) {
   .metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -897,6 +1073,12 @@ h1 {
     border-top: 1px solid rgba(148, 163, 184, 0.12);
     border-left: 0;
   }
+
+  .data-stats,
+  .data-grid,
+  .baseline-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 860px) {
@@ -923,8 +1105,22 @@ h1 {
   }
 
   .metrics-grid,
-  .route-layout {
+  .route-layout,
+  .data-stats,
+  .data-grid,
+  .baseline-form,
+  .compact-form {
     grid-template-columns: 1fr;
+  }
+
+  .data-hero,
+  .record-card {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .data-hero {
+    flex-direction: column;
   }
 
   .outreach-card {
