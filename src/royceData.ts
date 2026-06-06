@@ -58,8 +58,18 @@ export type ConcertRecord = {
   expectedRevenue: number;
 };
 
+export type GoalRecord = {
+  id: string;
+  title: string;
+  category: "Travel" | "Money" | "Outreach" | "Content" | "Collaboration" | "Nonprofit";
+  target: string;
+  timeframe: string;
+  priority: "High" | "Medium" | "Low";
+};
+
 export type RoyceOperatingData = {
   profile: OperatingProfile;
+  goals: GoalRecord[];
   monthlyExpenses: MonthlyExpense[];
   plannedCities: PlannedCityRecord[];
   collaborations: CollaborationRecord[];
@@ -79,6 +89,32 @@ export const initialRoyceData: RoyceOperatingData = {
     currentCityId: "shanghai",
     updatedAt: "2025-05-25",
   },
+  goals: [
+    {
+      id: "sponsor-1000",
+      title: "Reach 1,000 sponsor emails",
+      category: "Outreach",
+      target: "1,000 emails sent before January",
+      timeframe: "By Jan 2026",
+      priority: "High",
+    },
+    {
+      id: "route-asia",
+      title: "Build the Asia performance route",
+      category: "Travel",
+      target: "Move through China, Taiwan, Korea, Thailand, Vietnam, Malaysia",
+      timeframe: "Next 6 months",
+      priority: "High",
+    },
+    {
+      id: "collab-pipeline",
+      title: "Turn travel into collaborations",
+      category: "Collaboration",
+      target: "18 potential collaborations across the route",
+      timeframe: "Before route ends",
+      priority: "Medium",
+    },
+  ],
   monthlyExpenses: [
     {
       id: "accommodation",

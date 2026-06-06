@@ -13,6 +13,7 @@ import {
   initialRoyceData,
   type CollaborationRecord,
   type ConcertRecord,
+  type GoalRecord,
   type MonthlyExpense,
   type OrganizationRecord,
   type PlannedCityRecord,
@@ -36,6 +37,7 @@ const compactEuro = new Intl.NumberFormat("en-US", {
 const menuItems = [
   "Dashboard",
   "Royce Data",
+  "Goals",
   "Travel Plan",
   "Budget",
   "Outreach",
@@ -79,14 +81,27 @@ function App() {
   const daysUntilDeadline = daysBetween(royceData.profile.updatedAt, royceData.profile.sponsorDeadline);
   const cadenceSlots = Math.ceil(daysUntilDeadline / royceData.profile.sponsorCadenceEveryDays);
   const projectedEmails = royceData.profile.sponsorSent + cadenceSlots * royceData.profile.sponsorCadenceQuantity;
+  const aiStrategy = useMemo(
+    () => buildAiStrategy(royceData, currentCity, selectedCity, totalExpenses, projectedEmails),
+    [currentCity, projectedEmails, royceData, selectedCity, totalExpenses],
+  );
   const activeOpportunities = opportunities.filter(
     (opportunity) => !["Won", "Lost"].includes(opportunity.status),
   );
-  const dashboardTitle = activeSection === "Royce Data" ? "Royce Data" : "Dashboard";
-  const dashboardSubtitle =
-    activeSection === "Royce Data"
-      ? "Turn the system into a live source of truth before Supabase."
-      : "Good morning, Royce. Let's make today count.";
+  const pageCopy: Record<MenuItem, { title: string; subtitle: string }> = {
+    Dashboard: { title: "Dashboard", subtitle: "Good morning, Royce. Let's make today count." },
+    "Royce Data": { title: "Royce Data", subtitle: "Turn the system into a live source of truth before Supabase." },
+    Goals: { title: "Goals", subtitle: "Define what the AI should optimize around next." },
+    "Travel Plan": { title: "Travel Plan", subtitle: "Design your route. Maximize your impact." },
+    Budget: { title: "Budget", subtitle: "Keep the route inside your real runway." },
+    Outreach: { title: "Outreach", subtitle: "Move sponsor conversations forward on cadence." },
+    Contacts: { title: "Contacts", subtitle: "Track people, organizations, and warm introductions." },
+    Opportunities: { title: "Opportunities", subtitle: "Prioritize everything that can become leverage." },
+    Calendar: { title: "Calendar", subtitle: "Turn the route into a week-by-week plan." },
+    Content: { title: "Content", subtitle: "Connect travel, performance, and audience growth." },
+    Documents: { title: "Documents", subtitle: "Store decks, visas, budgets, and opportunity files." },
+    Settings: { title: "Settings", subtitle: "Tune Royce OS around your operating style." },
+  };
 
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(royceData));
@@ -135,9 +150,9 @@ function App() {
         <header className="topbar">
           <div>
             <h1>
-              {dashboardTitle} <span>👋</span>
+              {pageCopy[activeSection].title} <span>👋</span>
             </h1>
-            <p>{dashboardSubtitle}</p>
+            <p>{pageCopy[activeSection].subtitle}</p>
           </div>
           <div className="topbar-actions">
             <Pill icon="⌖" label={`${currentCity.city}, ${currentCity.country}`} />
@@ -150,7 +165,11 @@ function App() {
         </header>
 
         {activeSection === "Royce Data" ? (
-          <RoyceDataPage data={royceData} onChange={setRoyceData} />
+          <RoyceDataPage data={royceData} onChange={setRoyceData} strategy={aiStrategy} />
+        ) : activeSection === "Goals" ? (
+          <GoalsPage data={royceData} onChange={setRoyceData} strategy={aiStrategy} />
+        ) : activeSection === "Travel Plan" ? (
+          <TravelPlanPage data={royceData} selectedCity={selectedCity} strategy={aiStrategy} />
         ) : (
           <>
             <section className="metrics-grid" aria-label="Dashboard metrics">
@@ -239,13 +258,64 @@ function App() {
 
               <ActivityPanel />
 
-              <AiNotes organizations={royceData.organizations} selectedCity={selectedCity} />
+              <AiNotes strategy={aiStrategy} />
             </section>
           </>
         )}
       </main>
     </div>
   );
+}
+
+type AiStrategy = {
+  headline: string;
+  nextMoves: string[];
+  risks: string[];
+  cityRecommendation: string;
+};
+
+function buildAiStrategy(
+  data: RoyceOperatingData,
+  currentCity: City,
+  selectedCity: City,
+  totalExpenses: number,
+  projectedEmails: number,
+): AiStrategy {
+  const highPriorityGoals = data.goals.filter((goal) => goal.priority === "High");
+  const topGoal = highPriorityGoals[0] ?? data.goals[0];
+  const bestOrganizations = data.organizations
+    .filter((organization) => organization.city === currentCity.city || organization.country === currentCity.country)
+    .sort((a, b) => b.fitScore - a.fitScore)
+    .slice(0, 2);
+  const outreachGap = Math.max(data.profile.sponsorTarget - data.profile.sponsorSent, 0);
+  const runwayMonths = data.profile.monthlyBudget > 0 ? data.profile.currentCash / data.profile.monthlyBudget : 0;
+  const cityCostDelta = selectedCity.totalMonthlyCost - data.profile.monthlyBudget;
+  const nextCityPressure =
+    cityCostDelta > 0
+      ? `${selectedCity.city} is ${euro.format(cityCostDelta)} above monthly budget, so line up sponsor meetings before arrival.`
+      : `${selectedCity.city} fits under monthly budget, so use it as a runway-building stop.`;
+
+  return {
+    headline: topGoal
+      ? `Optimize this week around "${topGoal.title}" while protecting ${runwayMonths.toFixed(1)} months of runway.`
+      : `Protect ${runwayMonths.toFixed(1)} months of runway while turning travel into opportunities.`,
+    nextMoves: [
+      `Send the next ${data.profile.sponsorCadenceQuantity} sponsor emails toward the ${outreachGap} remaining outreach target.`,
+      bestOrganizations.length > 0
+        ? `Prioritize ${bestOrganizations.map((organization) => organization.name).join(" and ")} for warm sponsor/cultural intros.`
+        : `Add 3 target organizations in ${currentCity.city} so the AI can rank sponsor and cultural leads.`,
+      `Convert every reply into a task, collaboration, or concert record so strategy keeps evolving.`,
+    ],
+    risks: [
+      totalExpenses > data.profile.monthlyBudget
+        ? `Monthly expenses exceed budget by ${euro.format(totalExpenses - data.profile.monthlyBudget)}.`
+        : `Monthly tracked expenses are ${Math.round((totalExpenses / data.profile.monthlyBudget) * 100)}% of budget.`,
+      projectedEmails >= data.profile.sponsorTarget
+        ? "Sponsor cadence is on track if maintained."
+        : "Sponsor cadence is behind the January target.",
+    ],
+    cityRecommendation: nextCityPressure,
+  };
 }
 
 function Pill({ icon, label }: { icon: string; label: string }) {
@@ -551,27 +621,303 @@ function ActivityPanel() {
   );
 }
 
-function AiNotes({ organizations: targetOrganizations, selectedCity }: { organizations: OrganizationRecord[]; selectedCity: City }) {
-  const topBrands = targetOrganizations
-    .filter((organization) => organization.city === selectedCity.city || organization.country === selectedCity.country)
-    .sort((a, b) => b.fitScore - a.fitScore)
-    .slice(0, 3)
-    .map((organization) => organization.name)
-    .join(", ");
-
+function AiNotes({ strategy }: { strategy: AiStrategy }) {
   return (
     <section className="panel notes-panel">
       <PanelTitle title="Notes from AI Assistant" />
-      <p>
-        {selectedCity.city} has the best near-term opportunity density per euro. Prioritize {topBrands}
-        , then turn each warm reply into a task, interaction, and opportunity record.
-      </p>
+      <p>{strategy.headline}</p>
+      <ul className="ai-note-list">
+        {strategy.nextMoves.slice(0, 2).map((move) => (
+          <li key={move}>{move}</li>
+        ))}
+      </ul>
       <button type="button">View Opportunities</button>
     </section>
   );
 }
 
-function RoyceDataPage({ data, onChange }: { data: RoyceOperatingData; onChange: (data: RoyceOperatingData) => void }) {
+function GoalsPage({
+  data,
+  onChange,
+  strategy,
+}: {
+  data: RoyceOperatingData;
+  onChange: (data: RoyceOperatingData) => void;
+  strategy: AiStrategy;
+}) {
+  const addGoal = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const title = readFormText(formData, "title");
+
+    if (!title) {
+      return;
+    }
+
+    onChange({
+      ...data,
+      goals: [
+        ...data.goals,
+        {
+          id: createRecordId("goal"),
+          title,
+          category: readGoalCategory(formData),
+          target: readFormText(formData, "target", "Define measurable target"),
+          timeframe: readFormText(formData, "timeframe", "Next 90 days"),
+          priority: readGoalPriority(formData),
+        },
+      ],
+    });
+    event.currentTarget.reset();
+  };
+
+  return (
+    <section className="goals-page">
+      <div className="panel data-hero">
+        <div>
+          <span>Goal engine</span>
+          <h2>Tell Royce OS what the AI should optimize for.</h2>
+          <p>Goals are saved with Royce Data and feed the local strategy recommendations immediately.</p>
+        </div>
+      </div>
+      <section className="panel ai-strategy-panel">
+        <PanelTitle title="AI Strategy Mirror" action="Synced with goals" />
+        <h3>{strategy.headline}</h3>
+        <div className="strategy-grid">
+          {strategy.nextMoves.map((move) => (
+            <article key={move}>
+              <span>Move</span>
+              <strong>{move}</strong>
+            </article>
+          ))}
+          {strategy.risks.map((risk) => (
+            <article key={risk}>
+              <span>Risk</span>
+              <strong>{risk}</strong>
+            </article>
+          ))}
+        </div>
+      </section>
+      <DataCollection
+        addForm={
+          <form className="data-form compact-form goal-form" onSubmit={addGoal}>
+            <input name="title" placeholder="Goal" />
+            <select name="category" defaultValue="Travel">
+              <option>Travel</option>
+              <option>Money</option>
+              <option>Outreach</option>
+              <option>Content</option>
+              <option>Collaboration</option>
+              <option>Nonprofit</option>
+            </select>
+            <input name="target" placeholder="Target / metric" />
+            <input name="timeframe" placeholder="Timeframe" />
+            <select name="priority" defaultValue="High">
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
+            </select>
+            <button type="submit">+ Add goal</button>
+          </form>
+        }
+        title="Active Goals"
+      >
+        {data.goals.map((goal) => (
+          <GoalRecordCard
+            goal={goal}
+            key={goal.id}
+            onRemove={() =>
+              onChange({
+                ...data,
+                goals: data.goals.filter((item) => item.id !== goal.id),
+              })
+            }
+          />
+        ))}
+      </DataCollection>
+    </section>
+  );
+}
+
+function TravelPlanPage({
+  data,
+  selectedCity,
+  strategy,
+}: {
+  data: RoyceOperatingData;
+  selectedCity: City;
+  strategy: AiStrategy;
+}) {
+  const fallbackPlannedCity = data.plannedCities[0] ?? initialRoyceData.plannedCities[0];
+  const currentRecord = data.plannedCities.find((city) => city.id === data.profile.currentCityId) ?? fallbackPlannedCity;
+  const currentCityIntel =
+    cities.find((city) => city.id === currentRecord?.id || city.city === currentRecord?.city) ?? selectedCity;
+  const routeCost = data.plannedCities.reduce((sum, city) => sum + city.totalMonthlyCost, 0);
+  const localOrganizations = data.organizations
+    .filter((organization) => organization.city === currentCityIntel.city || organization.country === currentCityIntel.country)
+    .sort((a, b) => b.fitScore - a.fitScore);
+  const localCollaborations = data.collaborations.filter((collaboration) => collaboration.city === currentCityIntel.city);
+  const opportunityCards = [
+    ...localOrganizations.map((organization) => ({
+      id: organization.id,
+      title: organization.name,
+      meta: `${organization.type} · ${organization.city}`,
+      status: organization.fitScore >= 90 ? "High" : "Medium",
+      nextAction: organization.nextAction,
+    })),
+    ...localCollaborations.map((collaboration) => ({
+      id: collaboration.id,
+      title: collaboration.title,
+      meta: `Collaboration · ${collaboration.city}`,
+      status: collaboration.status,
+      nextAction: collaboration.nextStep,
+    })),
+  ];
+
+  return (
+    <section className="travel-page">
+      <div className="travel-grid">
+        <section className="panel travel-summary-card">
+          <PanelTitle title="Current City" />
+          <strong>
+            {currentRecord.city}, {currentRecord.country}
+          </strong>
+          <button type="button">View City</button>
+        </section>
+
+        <section className="panel travel-score-card">
+          <span>Next Recommended City</span>
+          <strong>
+            {selectedCity.city}, {selectedCity.country}
+          </strong>
+          <em>{Math.round(selectedCity.overallScore * 10)} /100</em>
+          <p>{strategy.cityRecommendation}</p>
+        </section>
+
+        <section className="panel travel-route-card">
+          <PanelTitle title="2026 Route" action="Edit Route" />
+          <ol className="mobile-route-list">
+            {data.plannedCities.map((city, index) => (
+              <li className={city.status === "Current" ? "selected" : ""} key={city.id}>
+                <span>{index + 1}</span>
+                <div>
+                  <strong>{city.city}, {city.country}</strong>
+                  <small>{city.dateRange}</small>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <button className="full-width-action" type="button">+ Add City</button>
+        </section>
+
+        <section className="panel route-overview-card">
+          <PanelTitle title="Route Overview" />
+          <div className="route-overview-grid">
+            <strong>{new Set(data.plannedCities.map((city) => city.country)).size}<span>Countries</span></strong>
+            <strong>{data.plannedCities.reduce((sum, city) => sum + Math.round(city.opportunityScore * 3), 0)}<span>Days Planned</span></strong>
+            <strong>{euro.format(routeCost)}<span>Est. Total Cost</span></strong>
+            <strong>{data.collaborations.length}<span>Potential Collaborations</span></strong>
+          </div>
+        </section>
+
+        <section className="panel city-detail-card">
+          <div className="city-photo" aria-label={`${currentCityIntel.city} skyline`}>
+            <span>● High Opportunity</span>
+          </div>
+          <div className="travel-tabs">
+            <button className="active" type="button">Overview</button>
+            <button type="button">Opportunities</button>
+            <button type="button">Budget</button>
+            <button type="button">Guide</button>
+          </div>
+          <CityScoreBars city={currentCityIntel} />
+          <section className="why-ai-card">
+            <h3>Why AI recommends {currentCityIntel.city}</h3>
+            <ul>
+              <li>Strong sponsor and cultural center density.</li>
+              <li>Current goals favor outreach plus collaboration discovery.</li>
+              <li>Cost profile keeps runway near {(data.profile.currentCash / data.profile.monthlyBudget).toFixed(1)} months.</li>
+            </ul>
+          </section>
+        </section>
+
+        <section className="panel travel-opportunities-card">
+          <PanelTitle title="Top Opportunities" action="+ Add Opportunity" />
+          <div className="opportunity-tabs-stats">
+            <strong>{opportunityCards.length}<span>All</span></strong>
+            <strong>{opportunityCards.filter((card) => card.status === "High").length}<span>High Priority</span></strong>
+            <strong>{data.collaborations.length}<span>In Progress</span></strong>
+            <strong>{data.organizations.length}<span>Contacted</span></strong>
+          </div>
+          <div className="travel-opportunity-list">
+            {opportunityCards.slice(0, 5).map((card) => (
+              <article key={card.id}>
+                <div>
+                  <strong>{card.title}</strong>
+                  <small>{card.meta}</small>
+                  <p>{card.nextAction}</p>
+                </div>
+                <em>{card.status}</em>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel city-guide-card">
+          <PanelTitle title="City Guide" action="See All" />
+          <div className="guide-grid">
+            <article><strong>Top Places</strong><small>12 places</small></article>
+            <article><strong>Cafés</strong><small>18 cafés</small></article>
+            <article><strong>Live Music</strong><small>24 venues</small></article>
+          </div>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function CityScoreBars({ city }: { city: City }) {
+  const scores = [
+    ["Overall Opportunity", city.overallScore * 10, "/100"],
+    ["Music Opportunities", city.buskingScore, "/10"],
+    ["Sponsor Density", city.sponsorScore, "/10"],
+    ["Networking Potential", city.networkScore, "/10"],
+    ["Cost of Living", Math.max(1, 10 - Math.round(city.totalMonthlyCost / 160)), "/10"],
+    ["Safety", city.safetyScore, "/10"],
+    ["Ease of Visa", city.visaEase, "/10"],
+  ] as const;
+
+  return (
+    <div className="city-score-bars">
+      <PanelTitle title="City Scores" />
+      {scores.map(([label, score, suffix]) => {
+        const percent = suffix === "/100" ? score : score * 10;
+
+        return (
+          <div key={label}>
+            <span>{label}</span>
+            <strong>
+              {Math.round(score)}{suffix}
+            </strong>
+            <div className="progress-track">
+              <span style={{ width: `${percent}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RoyceDataPage({
+  data,
+  onChange,
+  strategy,
+}: {
+  data: RoyceOperatingData;
+  onChange: (data: RoyceOperatingData) => void;
+  strategy: AiStrategy;
+}) {
   const totalExpenses = useMemo(
     () => data.monthlyExpenses.reduce((sum, expense) => sum + expense.amount, 0),
     [data.monthlyExpenses],
@@ -621,6 +967,32 @@ function RoyceDataPage({ data, onChange }: { data: RoyceOperatingData; onChange:
           category: readFormText(formData, "category", "Other"),
           amount,
           notes: readFormText(formData, "notes", "New monthly expense"),
+        },
+      ],
+    });
+    event.currentTarget.reset();
+  };
+
+  const addGoal = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const title = readFormText(formData, "title");
+
+    if (!title) {
+      return;
+    }
+
+    onChange({
+      ...data,
+      goals: [
+        ...data.goals,
+        {
+          id: createRecordId("goal"),
+          title,
+          category: readGoalCategory(formData),
+          target: readFormText(formData, "target", "Define measurable target"),
+          timeframe: readFormText(formData, "timeframe", "Next 90 days"),
+          priority: readGoalPriority(formData),
         },
       ],
     });
@@ -756,6 +1128,7 @@ function RoyceDataPage({ data, onChange }: { data: RoyceOperatingData; onChange:
         <DataStat label="Current cash" value={euro.format(data.profile.currentCash)} />
         <DataStat label="Monthly expenses" value={euro.format(totalExpenses)} />
         <DataStat label="Sponsor target" value={`${data.profile.sponsorSent}/${data.profile.sponsorTarget}`} />
+        <DataStat label="Active goals" value={String(data.goals.length)} />
         <DataStat label="Active collaborations" value={String(activeCollaborations)} />
         <DataStat label="Concert upside" value={euro.format(expectedConcertRevenue)} />
       </div>
@@ -820,6 +1193,57 @@ function RoyceDataPage({ data, onChange }: { data: RoyceOperatingData; onChange:
             </label>
           </div>
         </section>
+
+        <section className="panel data-panel data-panel-wide goals-sync-panel">
+          <PanelTitle title="Goals + AI Sync" action="Live local strategy" />
+          <p>{strategy.headline}</p>
+          <div className="strategy-grid">
+            {strategy.nextMoves.map((move) => (
+              <article key={move}>
+                <span>AI</span>
+                <strong>{move}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <DataCollection
+          addForm={
+            <form className="data-form compact-form goal-form" onSubmit={addGoal}>
+              <input name="title" placeholder="Goal" />
+              <select name="category" defaultValue="Travel">
+                <option>Travel</option>
+                <option>Money</option>
+                <option>Outreach</option>
+                <option>Content</option>
+                <option>Collaboration</option>
+                <option>Nonprofit</option>
+              </select>
+              <input name="target" placeholder="Target / metric" />
+              <input name="timeframe" placeholder="Timeframe" />
+              <select name="priority" defaultValue="High">
+                <option>High</option>
+                <option>Medium</option>
+                <option>Low</option>
+              </select>
+              <button type="submit">+ Add goal</button>
+            </form>
+          }
+          title="Goals"
+        >
+          {data.goals.map((goal) => (
+            <GoalRecordCard
+              goal={goal}
+              key={goal.id}
+              onRemove={() =>
+                onChange({
+                  ...data,
+                  goals: data.goals.filter((item) => item.id !== goal.id),
+                })
+              }
+            />
+          ))}
+        </DataCollection>
 
         <DataCollection
           addForm={
@@ -979,6 +1403,23 @@ function DataCollection({ addForm, children, title }: { addForm: ReactElement; c
   );
 }
 
+function GoalRecordCard({ goal, onRemove }: { goal: GoalRecord; onRemove: () => void }) {
+  return (
+    <article className="record-card goal-record">
+      <div>
+        <strong>{goal.title}</strong>
+        <small>
+          {goal.category} · {goal.target} · {goal.timeframe}
+        </small>
+      </div>
+      <em>{goal.priority}</em>
+      <button onClick={onRemove} type="button">
+        Delete
+      </button>
+    </article>
+  );
+}
+
 function ExpenseRecord({ expense, onRemove }: { expense: MonthlyExpense; onRemove: () => void }) {
   return (
     <article className="record-card">
@@ -1076,6 +1517,20 @@ function readFormNumber(formData: FormData, key: string) {
   return Number.isFinite(value) ? value : 0;
 }
 
+function readGoalCategory(formData: FormData): GoalRecord["category"] {
+  const value = readFormText(formData, "category", "Travel");
+  const categories: GoalRecord["category"][] = ["Travel", "Money", "Outreach", "Content", "Collaboration", "Nonprofit"];
+
+  return categories.includes(value as GoalRecord["category"]) ? (value as GoalRecord["category"]) : "Travel";
+}
+
+function readGoalPriority(formData: FormData): GoalRecord["priority"] {
+  const value = readFormText(formData, "priority", "High");
+  const priorities: GoalRecord["priority"][] = ["High", "Medium", "Low"];
+
+  return priorities.includes(value as GoalRecord["priority"]) ? (value as GoalRecord["priority"]) : "High";
+}
+
 function createRecordId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}`;
 }
@@ -1101,6 +1556,7 @@ function iconFor(label: string) {
   const icons: Record<string, string> = {
     Dashboard: "▦",
     "Royce Data": "◉",
+    Goals: "◎",
     "Travel Plan": "♜",
     Budget: "◈",
     Outreach: "✉",
