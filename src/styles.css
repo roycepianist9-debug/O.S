@@ -769,10 +769,6 @@ h1 {
 .activity-panel,
 .notes-panel {
   min-height: 250px;
-  border-color: rgba(45, 212, 191, 0.25);
-  background:
-    linear-gradient(145deg, rgba(19, 78, 74, 0.72), rgba(49, 46, 129, 0.58)),
-    rgba(15, 23, 42, 0.85);
 }
 
 .opportunity-list {
@@ -879,6 +875,10 @@ h1 {
 
 .notes-panel {
   grid-column: span 4;
+  border-color: rgba(45, 212, 191, 0.25);
+  background:
+    linear-gradient(145deg, rgba(19, 78, 74, 0.72), rgba(49, 46, 129, 0.58)),
+    rgba(15, 23, 42, 0.85);
 }
 
 .notes-panel p {
