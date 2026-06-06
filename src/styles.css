@@ -231,6 +231,24 @@ h1 {
   background: rgba(15, 23, 42, 0.7);
 }
 
+.memory-pill {
+  border-color: rgba(45, 212, 191, 0.25);
+  color: #ccfbf1;
+  background: rgba(15, 118, 110, 0.14);
+}
+
+.memory-pill.local {
+  border-color: rgba(251, 191, 36, 0.24);
+  color: #fde68a;
+  background: rgba(146, 64, 14, 0.16);
+}
+
+.memory-pill.loading {
+  border-color: rgba(196, 181, 253, 0.24);
+  color: #ddd6fe;
+  background: rgba(76, 29, 149, 0.16);
+}
+
 .add-button {
   width: 56px;
   height: 56px;
@@ -751,6 +769,10 @@ h1 {
 .activity-panel,
 .notes-panel {
   min-height: 250px;
+  border-color: rgba(45, 212, 191, 0.25);
+  background:
+    linear-gradient(145deg, rgba(19, 78, 74, 0.72), rgba(49, 46, 129, 0.58)),
+    rgba(15, 23, 42, 0.85);
 }
 
 .opportunity-list {

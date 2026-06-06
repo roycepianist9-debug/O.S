@@ -337,6 +337,35 @@ create table donations (
   notes text
 );
 
+create table royce_operating_memory (
+  memory_key text primary key default 'primary',
+  data jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table royce_actions (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  action_type text not null default 'Update',
+  source_text text,
+  status text not null default 'Logged',
+  data jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table royce_ai_tips (
+  id uuid primary key default gen_random_uuid(),
+  page text not null,
+  section text,
+  label text not null default 'AI Plan',
+  content text not null,
+  data jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  dismissed_at timestamptz
+);
+
 create index organizations_type_country_idx on organizations(organization_type, country);
 create index contacts_organization_id_idx on contacts(organization_id);
 create index interactions_contact_date_idx on interactions(contact_id, interaction_date desc);
@@ -344,3 +373,5 @@ create index opportunities_status_priority_idx on opportunities(status, priority
 create index outreach_messages_campaign_sent_idx on outreach_messages(campaign_id, sent_at desc);
 create index tasks_due_status_idx on tasks(due_date, status);
 create index transactions_account_date_idx on transactions(account_id, date desc);
+create index royce_actions_type_created_idx on royce_actions(action_type, created_at desc);
+create index royce_ai_tips_page_created_idx on royce_ai_tips(page, created_at desc);

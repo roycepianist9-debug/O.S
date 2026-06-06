@@ -19,6 +19,11 @@ import {
   type PlannedCityRecord,
   type RoyceOperatingData,
 } from "./royceData";
+import {
+  loadSupabaseMemory,
+  saveSupabaseMemory,
+  type MemoryState,
+} from "./royceMemory";
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactElement, type ReactNode } from "react";
 
 const euro = new Intl.NumberFormat("en-US", {
@@ -53,6 +58,11 @@ type MenuItem = (typeof menuItems)[number];
 
 const storageKey = "royce-os-phase-one-data";
 
+const initialMemoryState: MemoryState = {
+  mode: "loading",
+  detail: "Loading Supabase memory.",
+};
+
 function loadRoyceData() {
   const rawData = window.localStorage.getItem(storageKey);
 
@@ -67,9 +77,22 @@ function loadRoyceData() {
   }
 }
 
+function mergeRoyceData(data: RoyceOperatingData) {
+  return {
+    ...initialRoyceData,
+    ...data,
+    profile: {
+      ...initialRoyceData.profile,
+      ...data.profile,
+    },
+  };
+}
+
 function App() {
   const [activeSection, setActiveSection] = useState<MenuItem>("Dashboard");
   const [royceData, setRoyceData] = useState<RoyceOperatingData>(loadRoyceData);
+  const [memoryState, setMemoryState] = useState<MemoryState>(initialMemoryState);
+  const [memoryReady, setMemoryReady] = useState(false);
   const currentCity = cities.find((city) => city.id === royceData.profile.currentCityId) ?? cities[0];
   const nextPlannedCity = royceData.plannedCities.find((city) => city.status === "Planned");
   const selectedCity = cities.find((city) => city.id === nextPlannedCity?.id) ?? cities[1];
@@ -104,8 +127,39 @@ function App() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
+    void loadSupabaseMemory().then((result) => {
+      if (!isMounted) {
+        return;
+      }
+
+      if (result.ok && result.data) {
+        setRoyceData(mergeRoyceData(result.data));
+      }
+
+      setMemoryState(result.state);
+      setMemoryReady(true);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(royceData));
-  }, [royceData]);
+
+    if (!memoryReady) {
+      return;
+    }
+
+    const saveTimer = window.setTimeout(() => {
+      void saveSupabaseMemory(royceData).then(setMemoryState);
+    }, 600);
+
+    return () => window.clearTimeout(saveTimer);
+  }, [memoryReady, royceData]);
 
   return (
     <div className="shell">
@@ -155,6 +209,7 @@ function App() {
             <p>{pageCopy[activeSection].subtitle}</p>
           </div>
           <div className="topbar-actions">
+            <MemoryPill state={memoryState} />
             <Pill icon="⌖" label={`${currentCity.city}, ${currentCity.country}`} />
             <Pill icon="☀" label="28°C" />
             <Pill icon="📅" label="May 25, 2025 · Sunday" />
@@ -321,6 +376,19 @@ function buildAiStrategy(
 function Pill({ icon, label }: { icon: string; label: string }) {
   return (
     <span className="pill">
+      <span>{icon}</span>
+      {label}
+    </span>
+  );
+}
+
+function MemoryPill({ state }: { state: MemoryState }) {
+  const icon = state.mode === "supabase" ? "◈" : state.mode === "loading" ? "…" : "◇";
+  const label =
+    state.mode === "supabase" ? "Supabase memory" : state.mode === "loading" ? "Loading memory" : "Local fallback";
+
+  return (
+    <span className={`pill memory-pill ${state.mode}`} title={state.detail}>
       <span>{icon}</span>
       {label}
     </span>
@@ -624,7 +692,7 @@ function ActivityPanel() {
 function AiNotes({ strategy }: { strategy: AiStrategy }) {
   return (
     <section className="panel notes-panel">
-      <PanelTitle title="Notes from AI Assistant" />
+      <PanelTitle title="AI Plan" action="Auto-updated from Royce Data" />
       <p>{strategy.headline}</p>
       <ul className="ai-note-list">
         {strategy.nextMoves.slice(0, 2).map((move) => (
@@ -681,7 +749,7 @@ function GoalsPage({
         </div>
       </div>
       <section className="panel ai-strategy-panel">
-        <PanelTitle title="AI Strategy Mirror" action="Synced with goals" />
+        <PanelTitle title="AI Plan" action="Synced with goals" />
         <h3>{strategy.headline}</h3>
         <div className="strategy-grid">
           {strategy.nextMoves.map((move) => (
@@ -832,7 +900,7 @@ function TravelPlanPage({
           </div>
           <CityScoreBars city={currentCityIntel} />
           <section className="why-ai-card">
-            <h3>Why AI recommends {currentCityIntel.city}</h3>
+            <h3>AI Plan for {currentCityIntel.city}</h3>
             <ul>
               <li>Strong sponsor and cultural center density.</li>
               <li>Current goals favor outreach plus collaboration discovery.</li>
@@ -1195,7 +1263,7 @@ function RoyceDataPage({
         </section>
 
         <section className="panel data-panel data-panel-wide goals-sync-panel">
-          <PanelTitle title="Goals + AI Sync" action="Live local strategy" />
+          <PanelTitle title="AI Plan Sync" action="Live local strategy" />
           <p>{strategy.headline}</p>
           <div className="strategy-grid">
             {strategy.nextMoves.map((move) => (
