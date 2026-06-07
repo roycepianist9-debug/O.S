@@ -24,7 +24,16 @@ import {
   saveSupabaseMemory,
   type MemoryState,
 } from "./royceMemory";
-import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactElement, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 const euro = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -90,6 +99,7 @@ function mergeRoyceData(data: RoyceOperatingData) {
 
 function App() {
   const [activeSection, setActiveSection] = useState<MenuItem>("Dashboard");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [royceData, setRoyceData] = useState<RoyceOperatingData>(loadRoyceData);
   const [memoryState, setMemoryState] = useState<MemoryState>(initialMemoryState);
   const [memoryReady, setMemoryReady] = useState(false);
@@ -161,21 +171,55 @@ function App() {
     return () => window.clearTimeout(saveTimer);
   }, [memoryReady, royceData]);
 
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [menuOpen]);
+
+  const selectSection = (item: MenuItem) => {
+    setActiveSection(item);
+    setMenuOpen(false);
+  };
+
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <span>ROYCE</span>
-          <strong>OS</strong>
+    <div className={`shell ${menuOpen ? "menu-is-open" : ""}`}>
+      <button
+        aria-label="Close navigation menu"
+        className="menu-backdrop"
+        onClick={() => setMenuOpen(false)}
+        type="button"
+      />
+      <aside className={`sidebar ${menuOpen ? "open" : ""}`} id="primary-navigation">
+        <div className="sidebar-head">
+          <div>
+            <div className="brand">
+              <span>ROYCE</span>
+              <strong>OS</strong>
+            </div>
+            <p className="brand-subtitle">Your Personal Navigation System</p>
+          </div>
+          <button className="drawer-close" onClick={() => setMenuOpen(false)} type="button" aria-label="Close menu">
+            ×
+          </button>
         </div>
-        <p className="brand-subtitle">Your Personal Navigation System</p>
 
         <nav className="side-nav" aria-label="Primary navigation">
           {menuItems.map((item) => (
             <button
               className={item === activeSection ? "active" : ""}
               key={item}
-              onClick={() => setActiveSection(item)}
+              onClick={() => selectSection(item)}
               type="button"
             >
               <span className="nav-icon">{iconFor(item)}</span>
@@ -202,11 +246,25 @@ function App() {
 
       <main className="dashboard">
         <header className="topbar">
-          <div>
-            <h1>
-              {pageCopy[activeSection].title} <span>👋</span>
-            </h1>
-            <p>{pageCopy[activeSection].subtitle}</p>
+          <div className="topbar-heading">
+            <button
+              aria-controls="primary-navigation"
+              aria-expanded={menuOpen}
+              aria-label="Open navigation menu"
+              className="menu-toggle"
+              onClick={() => setMenuOpen(true)}
+              type="button"
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+            <div>
+              <h1>
+                {pageCopy[activeSection].title} <span>👋</span>
+              </h1>
+              <p>{pageCopy[activeSection].subtitle}</p>
+            </div>
           </div>
           <div className="topbar-actions">
             <MemoryPill state={memoryState} />
@@ -219,13 +277,7 @@ function App() {
           </div>
         </header>
 
-        {activeSection === "Royce Data" ? (
-          <RoyceDataPage data={royceData} onChange={setRoyceData} strategy={aiStrategy} />
-        ) : activeSection === "Goals" ? (
-          <GoalsPage data={royceData} onChange={setRoyceData} strategy={aiStrategy} />
-        ) : activeSection === "Travel Plan" ? (
-          <TravelPlanPage data={royceData} selectedCity={selectedCity} strategy={aiStrategy} />
-        ) : (
+        {activeSection === "Dashboard" ? (
           <>
             <section className="metrics-grid" aria-label="Dashboard metrics">
               <MetricCard
@@ -316,6 +368,14 @@ function App() {
               <AiNotes strategy={aiStrategy} />
             </section>
           </>
+        ) : activeSection === "Royce Data" ? (
+          <RoyceDataPage data={royceData} onChange={setRoyceData} strategy={aiStrategy} />
+        ) : activeSection === "Goals" ? (
+          <GoalsPage data={royceData} onChange={setRoyceData} strategy={aiStrategy} />
+        ) : activeSection === "Travel Plan" ? (
+          <TravelPlanPage data={royceData} onChange={setRoyceData} selectedCity={selectedCity} strategy={aiStrategy} />
+        ) : (
+          <SectionWorkspace data={royceData} section={activeSection} strategy={aiStrategy} />
         )}
       </main>
     </div>
@@ -392,6 +452,95 @@ function MemoryPill({ state }: { state: MemoryState }) {
       <span>{icon}</span>
       {label}
     </span>
+  );
+}
+
+function LongPressDeleteCard({
+  ariaLabel,
+  children,
+  className = "record-card",
+  deleteLabel = "Delete",
+  onDelete,
+}: {
+  ariaLabel: string;
+  children: ReactNode;
+  className?: string;
+  deleteLabel?: string;
+  onDelete: () => void;
+}) {
+  const [deleteReady, setDeleteReady] = useState(false);
+  const pressTimer = useRef<number | null>(null);
+
+  const clearPressTimer = () => {
+    if (pressTimer.current !== null) {
+      window.clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+
+  const revealDelete = () => {
+    clearPressTimer();
+    setDeleteReady(true);
+  };
+
+  const startPress = () => {
+    if (deleteReady) {
+      return;
+    }
+
+    clearPressTimer();
+    pressTimer.current = window.setTimeout(revealDelete, 560);
+  };
+
+  const handleDelete = () => {
+    clearPressTimer();
+    setDeleteReady(false);
+    onDelete();
+  };
+
+  return (
+    <article
+      aria-label={`${ariaLabel}. Long press to reveal delete.`}
+      className={`${className} long-press-card ${deleteReady ? "delete-ready" : ""}`}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        revealDelete();
+      }}
+      onDoubleClick={revealDelete}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          setDeleteReady(false);
+        }
+
+        if (event.key === "Backspace" || event.key === "Delete") {
+          event.preventDefault();
+          if (deleteReady) {
+            handleDelete();
+          } else {
+            revealDelete();
+          }
+        }
+      }}
+      onPointerCancel={clearPressTimer}
+      onPointerDown={startPress}
+      onPointerLeave={clearPressTimer}
+      onPointerUp={clearPressTimer}
+      tabIndex={0}
+    >
+      {children}
+      <button
+        aria-label={deleteLabel}
+        className="delete-affordance"
+        onClick={(event) => {
+          event.stopPropagation();
+          handleDelete();
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        type="button"
+      >
+        Delete
+      </button>
+    </article>
   );
 }
 
@@ -809,10 +958,12 @@ function GoalsPage({
 
 function TravelPlanPage({
   data,
+  onChange,
   selectedCity,
   strategy,
 }: {
   data: RoyceOperatingData;
+  onChange: (data: RoyceOperatingData) => void;
   selectedCity: City;
   strategy: AiStrategy;
 }) {
@@ -830,6 +981,7 @@ function TravelPlanPage({
       id: organization.id,
       title: organization.name,
       meta: `${organization.type} · ${organization.city}`,
+      source: "organization",
       status: organization.fitScore >= 90 ? "High" : "Medium",
       nextAction: organization.nextAction,
     })),
@@ -837,10 +989,26 @@ function TravelPlanPage({
       id: collaboration.id,
       title: collaboration.title,
       meta: `Collaboration · ${collaboration.city}`,
+      source: "collaboration",
       status: collaboration.status,
       nextAction: collaboration.nextStep,
     })),
   ];
+
+  const deleteOpportunityCard = (card: (typeof opportunityCards)[number]) => {
+    if (card.source === "organization") {
+      onChange({
+        ...data,
+        organizations: data.organizations.filter((organization) => organization.id !== card.id),
+      });
+      return;
+    }
+
+    onChange({
+      ...data,
+      collaborations: data.collaborations.filter((collaboration) => collaboration.id !== card.id),
+    });
+  };
 
   return (
     <section className="travel-page">
@@ -919,14 +1087,20 @@ function TravelPlanPage({
           </div>
           <div className="travel-opportunity-list">
             {opportunityCards.slice(0, 5).map((card) => (
-              <article key={card.id}>
+              <LongPressDeleteCard
+                ariaLabel={`${card.title} opportunity`}
+                className="travel-opportunity-record"
+                deleteLabel={`Delete ${card.title}`}
+                key={card.id}
+                onDelete={() => deleteOpportunityCard(card)}
+              >
                 <div>
                   <strong>{card.title}</strong>
                   <small>{card.meta}</small>
                   <p>{card.nextAction}</p>
                 </div>
                 <em>{card.status}</em>
-              </article>
+              </LongPressDeleteCard>
             ))}
           </div>
         </section>
@@ -940,6 +1114,101 @@ function TravelPlanPage({
           </div>
         </section>
       </div>
+    </section>
+  );
+}
+
+function SectionWorkspace({
+  data,
+  section,
+  strategy,
+}: {
+  data: RoyceOperatingData;
+  section: MenuItem;
+  strategy: AiStrategy;
+}) {
+  const sectionStats: Record<string, { label: string; value: string }[]> = {
+    Budget: [
+      { label: "Current cash", value: euro.format(data.profile.currentCash) },
+      { label: "Monthly budget", value: euro.format(data.profile.monthlyBudget) },
+      { label: "Tracked expenses", value: euro.format(data.monthlyExpenses.reduce((sum, expense) => sum + expense.amount, 0)) },
+    ],
+    Outreach: [
+      { label: "Sponsor target", value: `${data.profile.sponsorSent}/${data.profile.sponsorTarget}` },
+      { label: "Cadence", value: `${data.profile.sponsorCadenceQuantity} emails / ${data.profile.sponsorCadenceEveryDays} days` },
+      { label: "Organizations", value: data.organizations.length.toString() },
+    ],
+    Contacts: [
+      { label: "Organizations", value: data.organizations.length.toString() },
+      { label: "Collaborations", value: data.collaborations.length.toString() },
+      { label: "Cities", value: data.plannedCities.length.toString() },
+    ],
+    Opportunities: [
+      { label: "Active opportunities", value: opportunities.filter((opportunity) => opportunity.status !== "Won").length.toString() },
+      { label: "Concerts", value: data.concerts.length.toString() },
+      { label: "Route cities", value: data.plannedCities.length.toString() },
+    ],
+    Calendar: [
+      { label: "Concerts", value: data.concerts.length.toString() },
+      { label: "Next city", value: data.plannedCities.find((city) => city.status === "Planned")?.city ?? "Add route" },
+      { label: "Goals", value: data.goals.length.toString() },
+    ],
+    Content: [
+      { label: "Content projects", value: contentProjects.length.toString() },
+      { label: "Route cities", value: data.plannedCities.length.toString() },
+      { label: "Collaborations", value: data.collaborations.length.toString() },
+    ],
+    Documents: [
+      { label: "Decks", value: "Sponsor / nonprofit" },
+      { label: "Travel docs", value: `${data.plannedCities.length} cities` },
+      { label: "AI notes", value: "Labeled AI Plan" },
+    ],
+    Settings: [
+      { label: "Memory mode", value: "Local + Supabase-ready" },
+      { label: "Default view", value: "Dashboard" },
+      { label: "Navigation", value: "Hamburger drawer" },
+    ],
+  };
+  const cards = sectionStats[section] ?? [];
+
+  return (
+    <section className="section-page">
+      <div className="panel data-hero">
+        <div>
+          <span>{section} workspace</span>
+          <h2>{section} opens as its own page from the hamburger menu.</h2>
+          <p>
+            This keeps Dashboard as the home view while every menu click switches to a dedicated workspace. The deeper
+            editable tools can keep expanding inside each page.
+          </p>
+        </div>
+      </div>
+      <section className="section-card-grid">
+        {cards.map((card) => (
+          <article className="panel data-stat" key={`${section}-${card.label}`}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+          </article>
+        ))}
+      </section>
+      <section className="panel ai-strategy-panel">
+        <PanelTitle title="AI Plan" action={`Synced with ${section}`} />
+        <h3>{strategy.headline}</h3>
+        <div className="strategy-grid">
+          {strategy.nextMoves.map((move) => (
+            <article key={move}>
+              <span>Move</span>
+              <strong>{move}</strong>
+            </article>
+          ))}
+          {strategy.risks.map((risk) => (
+            <article key={risk}>
+              <span>Risk</span>
+              <strong>{risk}</strong>
+            </article>
+          ))}
+        </div>
+      </section>
     </section>
   );
 }
@@ -1465,6 +1734,7 @@ function DataCollection({ addForm, children, title }: { addForm: ReactElement; c
   return (
     <section className="panel data-panel">
       <PanelTitle title={title} />
+      <p className="long-press-hint">Long-press a card to reveal Delete.</p>
       <div className="record-list">{children}</div>
       {addForm}
     </section>
@@ -1473,7 +1743,7 @@ function DataCollection({ addForm, children, title }: { addForm: ReactElement; c
 
 function GoalRecordCard({ goal, onRemove }: { goal: GoalRecord; onRemove: () => void }) {
   return (
-    <article className="record-card goal-record">
+    <LongPressDeleteCard ariaLabel={`${goal.title} goal`} className="record-card goal-record" onDelete={onRemove}>
       <div>
         <strong>{goal.title}</strong>
         <small>
@@ -1481,31 +1751,25 @@ function GoalRecordCard({ goal, onRemove }: { goal: GoalRecord; onRemove: () => 
         </small>
       </div>
       <em>{goal.priority}</em>
-      <button onClick={onRemove} type="button">
-        Delete
-      </button>
-    </article>
+    </LongPressDeleteCard>
   );
 }
 
 function ExpenseRecord({ expense, onRemove }: { expense: MonthlyExpense; onRemove: () => void }) {
   return (
-    <article className="record-card">
+    <LongPressDeleteCard ariaLabel={`${expense.category} expense`} onDelete={onRemove}>
       <div>
         <strong>{expense.category}</strong>
         <small>{expense.notes}</small>
       </div>
       <em>{euro.format(expense.amount)}</em>
-      <button onClick={onRemove} type="button">
-        Remove
-      </button>
-    </article>
+    </LongPressDeleteCard>
   );
 }
 
 function CityRecord({ city, onRemove }: { city: PlannedCityRecord; onRemove: () => void }) {
   return (
-    <article className="record-card">
+    <LongPressDeleteCard ariaLabel={`${city.city} route city`} onDelete={onRemove}>
       <div>
         <strong>
           {city.city}, {city.country}
@@ -1515,16 +1779,13 @@ function CityRecord({ city, onRemove }: { city: PlannedCityRecord; onRemove: () 
         </small>
       </div>
       <em>{city.opportunityScore.toFixed(1)}</em>
-      <button onClick={onRemove} type="button">
-        Remove
-      </button>
-    </article>
+    </LongPressDeleteCard>
   );
 }
 
 function OrganizationDataRecord({ organization, onRemove }: { organization: OrganizationRecord; onRemove: () => void }) {
   return (
-    <article className="record-card">
+    <LongPressDeleteCard ariaLabel={`${organization.name} organization`} onDelete={onRemove}>
       <div>
         <strong>{organization.name}</strong>
         <small>
@@ -1532,16 +1793,13 @@ function OrganizationDataRecord({ organization, onRemove }: { organization: Orga
         </small>
       </div>
       <em>{organization.fitScore}</em>
-      <button onClick={onRemove} type="button">
-        Remove
-      </button>
-    </article>
+    </LongPressDeleteCard>
   );
 }
 
 function CollaborationDataRecord({ collaboration, onRemove }: { collaboration: CollaborationRecord; onRemove: () => void }) {
   return (
-    <article className="record-card">
+    <LongPressDeleteCard ariaLabel={`${collaboration.title} collaboration`} onDelete={onRemove}>
       <div>
         <strong>{collaboration.title}</strong>
         <small>
@@ -1549,16 +1807,13 @@ function CollaborationDataRecord({ collaboration, onRemove }: { collaboration: C
         </small>
       </div>
       <em>{compactEuro.format(collaboration.estimatedValue)}</em>
-      <button onClick={onRemove} type="button">
-        Remove
-      </button>
-    </article>
+    </LongPressDeleteCard>
   );
 }
 
 function ConcertDataRecord({ concert, onRemove }: { concert: ConcertRecord; onRemove: () => void }) {
   return (
-    <article className="record-card">
+    <LongPressDeleteCard ariaLabel={`${concert.title} concert`} onDelete={onRemove}>
       <div>
         <strong>{concert.title}</strong>
         <small>
@@ -1566,10 +1821,7 @@ function ConcertDataRecord({ concert, onRemove }: { concert: ConcertRecord; onRe
         </small>
       </div>
       <em>{compactEuro.format(concert.expectedRevenue)}</em>
-      <button onClick={onRemove} type="button">
-        Remove
-      </button>
-    </article>
+    </LongPressDeleteCard>
   );
 }
 
