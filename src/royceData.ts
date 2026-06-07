@@ -8,6 +8,7 @@ export type OperatingProfile = {
   sponsorCadenceEveryDays: number;
   currentCityId: string;
   updatedAt: string;
+  description: string;
 };
 
 export type MonthlyExpense = {
@@ -67,9 +68,20 @@ export type GoalRecord = {
   priority: "High" | "Medium" | "Low";
 };
 
+export type TodoRecord = {
+  id: string;
+  title: string;
+  source: "Manual" | "AI";
+  priority: "High" | "Medium" | "Low";
+  due: string;
+  rationale: string;
+  createdAt: string;
+};
+
 export type RoyceOperatingData = {
   profile: OperatingProfile;
   goals: GoalRecord[];
+  todos: TodoRecord[];
   monthlyExpenses: MonthlyExpense[];
   plannedCities: PlannedCityRecord[];
   collaborations: CollaborationRecord[];
@@ -88,6 +100,7 @@ export const initialRoyceData: RoyceOperatingData = {
     sponsorCadenceEveryDays: 2,
     currentCityId: "shanghai",
     updatedAt: "2025-05-25",
+    description: "",
   },
   goals: [
     {
@@ -115,6 +128,7 @@ export const initialRoyceData: RoyceOperatingData = {
       priority: "Medium",
     },
   ],
+  todos: [],
   monthlyExpenses: [
     {
       id: "accommodation",
@@ -201,6 +215,16 @@ export const initialRoyceData: RoyceOperatingData = {
       opportunityScore: 7,
       status: "Planned",
       notes: "Bridge city for embassy, university, and nonprofit meetings.",
+    },
+    {
+      id: "paris",
+      city: "Paris",
+      country: "France",
+      dateRange: "Future route option",
+      totalMonthlyCost: 1320,
+      opportunityScore: 8.1,
+      status: "Planned",
+      notes: "European sponsor, cultural institution, embassy, and concert-network hub.",
     },
   ],
   collaborations: [

@@ -18,6 +18,7 @@ import {
   type OrganizationRecord,
   type PlannedCityRecord,
   type RoyceOperatingData,
+  type TodoRecord,
 } from "./royceData";
 import {
   loadSupabaseMemory,
@@ -52,6 +53,7 @@ const menuItems = [
   "Dashboard",
   "Royce Data",
   "Goals",
+  "To-do",
   "Travel Plan",
   "Budget",
   "Outreach",
@@ -76,13 +78,13 @@ function loadRoyceData() {
   const rawData = window.localStorage.getItem(storageKey);
 
   if (!rawData) {
-    return initialRoyceData;
+    return mergeRoyceData(initialRoyceData);
   }
 
   try {
-    return { ...initialRoyceData, ...JSON.parse(rawData) } as RoyceOperatingData;
+    return mergeRoyceData(JSON.parse(rawData) as RoyceOperatingData);
   } catch {
-    return initialRoyceData;
+    return mergeRoyceData(initialRoyceData);
   }
 }
 
@@ -94,6 +96,13 @@ function mergeRoyceData(data: RoyceOperatingData) {
       ...initialRoyceData.profile,
       ...data.profile,
     },
+    goals: data.goals ?? initialRoyceData.goals,
+    todos: data.todos ?? initialRoyceData.todos,
+    monthlyExpenses: data.monthlyExpenses ?? initialRoyceData.monthlyExpenses,
+    plannedCities: data.plannedCities ?? initialRoyceData.plannedCities,
+    collaborations: data.collaborations ?? initialRoyceData.collaborations,
+    organizations: data.organizations ?? initialRoyceData.organizations,
+    concerts: data.concerts ?? initialRoyceData.concerts,
   };
 }
 
@@ -125,6 +134,7 @@ function App() {
     Dashboard: { title: "Dashboard", subtitle: "Good morning, Royce. Let's make today count." },
     "Royce Data": { title: "Royce Data", subtitle: "Turn the system into a live source of truth before Supabase." },
     Goals: { title: "Goals", subtitle: "Define what the AI should optimize around next." },
+    "To-do": { title: "To-do", subtitle: "Manual next actions plus AI-generated tasks from your full context." },
     "Travel Plan": { title: "Travel Plan", subtitle: "Design your route. Maximize your impact." },
     Budget: { title: "Budget", subtitle: "Keep the route inside your real runway." },
     Outreach: { title: "Outreach", subtitle: "Move sponsor conversations forward on cadence." },
@@ -372,6 +382,8 @@ function App() {
           <RoyceDataPage data={royceData} onChange={setRoyceData} strategy={aiStrategy} />
         ) : activeSection === "Goals" ? (
           <GoalsPage data={royceData} onChange={setRoyceData} strategy={aiStrategy} />
+        ) : activeSection === "To-do" ? (
+          <TodoPage data={royceData} onChange={setRoyceData} strategy={aiStrategy} />
         ) : activeSection === "Travel Plan" ? (
           <TravelPlanPage data={royceData} onChange={setRoyceData} selectedCity={selectedCity} strategy={aiStrategy} />
         ) : (
@@ -431,6 +443,103 @@ function buildAiStrategy(
     ],
     cityRecommendation: nextCityPressure,
   };
+}
+
+function buildAiTodoSuggestions(data: RoyceOperatingData, strategy: AiStrategy): TodoRecord[] {
+  const topGoal = data.goals.find((goal) => goal.priority === "High") ?? data.goals[0];
+  const nextCity = data.plannedCities.find((city) => city.status === "Planned") ?? data.plannedCities[0];
+  const parisCity = data.plannedCities.find((city) => city.id === "paris");
+  const topOrganization = [...data.organizations].sort((a, b) => b.fitScore - a.fitScore)[0];
+  const topCollaboration = [...data.collaborations].sort((a, b) => b.estimatedValue - a.estimatedValue)[0];
+  const nextConcert = data.concerts[0];
+  const totalExpenses = data.monthlyExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const outreachGap = Math.max(data.profile.sponsorTarget - data.profile.sponsorSent, 0);
+  const hasProfileDescription = data.profile.description.trim().length > 0;
+  const createdAt = data.profile.updatedAt;
+  const suggestions = [
+    {
+      title: hasProfileDescription
+        ? "Turn profile description into 5 constraints and 5 leverage points"
+        : "Paste a detailed profile description into Royce Data",
+      priority: "High",
+      due: "Today",
+      rationale: hasProfileDescription
+        ? "The saved profile is now the starting context for better AI planning."
+        : "The AI needs your starting point before recommendations can become personal.",
+    },
+    {
+      title: topGoal ? `Define the next physical action for "${topGoal.title}"` : "Add one high-priority goal",
+      priority: "High",
+      due: "Today",
+      rationale: strategy.headline,
+    },
+    {
+      title: `Send the next ${data.profile.sponsorCadenceQuantity} sponsor emails`,
+      priority: "High",
+      due: `Every ${data.profile.sponsorCadenceEveryDays} days`,
+      rationale: `${outreachGap} emails remain before the ${data.profile.sponsorTarget} sponsor target.`,
+    },
+    {
+      title: nextCity ? `Build a 48-hour arrival plan for ${nextCity.city}` : "Choose the next planned city",
+      priority: "High",
+      due: "Before next move",
+      rationale: strategy.cityRecommendation,
+    },
+    {
+      title: topOrganization ? `Find the right contact at ${topOrganization.name}` : "Add 3 target organizations",
+      priority: "High",
+      due: "This week",
+      rationale: topOrganization
+        ? `${topOrganization.name} has a ${topOrganization.fitScore}/100 fit score and next action: ${topOrganization.nextAction}`
+        : "Organizations give the AI concrete sponsor and cultural leads to rank.",
+    },
+    {
+      title: topCollaboration ? `Move "${topCollaboration.title}" one step forward` : "Add one collaboration idea",
+      priority: "Medium",
+      due: "This week",
+      rationale: topCollaboration
+        ? `${topCollaboration.partner} is worth an estimated ${compactEuro.format(topCollaboration.estimatedValue)}.`
+        : "Collaboration records turn travel into concrete opportunity pipelines.",
+    },
+    {
+      title: nextConcert ? `Create a tiny outreach plan for "${nextConcert.title}"` : "Add one concert opportunity",
+      priority: "Medium",
+      due: "This week",
+      rationale: nextConcert
+        ? `${nextConcert.venue} could create ${compactEuro.format(nextConcert.expectedRevenue)} in upside.`
+        : "Concert records help the AI compare income, visibility, and travel timing.",
+    },
+    {
+      title: `Review monthly expenses against the ${euro.format(data.profile.monthlyBudget)} budget`,
+      priority: totalExpenses > data.profile.monthlyBudget ? "High" : "Medium",
+      due: "Weekly",
+      rationale:
+        totalExpenses > data.profile.monthlyBudget
+          ? `Tracked expenses exceed budget by ${euro.format(totalExpenses - data.profile.monthlyBudget)}.`
+          : `Tracked expenses are ${euro.format(totalExpenses)} so far this month.`,
+    },
+    {
+      title: parisCity ? "Create a Paris sponsor/cultural target list" : "Add Paris, France to the route",
+      priority: "Medium",
+      due: "Route planning",
+      rationale: parisCity
+        ? `${parisCity.city} now sits in the city selector with ${parisCity.opportunityScore.toFixed(1)}/10 opportunity score.`
+        : "Paris should be available as a European route and sponsor hub.",
+    },
+    {
+      title: "Convert every new reply into a task, organization, collaboration, concert, or goal",
+      priority: "Medium",
+      due: "Ongoing",
+      rationale: "The AI Plan evolves only when new inputs become structured Royce OS records.",
+    },
+  ] satisfies Omit<TodoRecord, "id" | "source" | "createdAt">[];
+
+  return suggestions.map((suggestion, index) => ({
+    ...suggestion,
+    id: `ai-todo-${Date.now().toString(36)}-${index}`,
+    source: "AI",
+    createdAt,
+  }));
 }
 
 function Pill({ icon, label }: { icon: string; label: string }) {
@@ -952,6 +1061,121 @@ function GoalsPage({
           />
         ))}
       </DataCollection>
+    </section>
+  );
+}
+
+function TodoPage({
+  data,
+  onChange,
+  strategy,
+}: {
+  data: RoyceOperatingData;
+  onChange: (data: RoyceOperatingData) => void;
+  strategy: AiStrategy;
+}) {
+  const manualTodos = data.todos.filter((todo) => todo.source === "Manual");
+  const aiTodos = data.todos.filter((todo) => todo.source === "AI");
+
+  const addManualTodo = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const title = readFormText(formData, "title");
+
+    if (!title) {
+      return;
+    }
+
+    onChange({
+      ...data,
+      todos: [
+        ...data.todos,
+        {
+          id: createRecordId("todo"),
+          title,
+          source: "Manual",
+          priority: readTodoPriority(formData),
+          due: readFormText(formData, "due", "Open"),
+          rationale: readFormText(formData, "rationale", "Added by Royce."),
+          createdAt: data.profile.updatedAt,
+        },
+      ],
+    });
+    event.currentTarget.reset();
+  };
+
+  const removeTodo = (todoId: string) => {
+    onChange({
+      ...data,
+      todos: data.todos.filter((todo) => todo.id !== todoId),
+    });
+  };
+
+  const generateAiTodos = () => {
+    onChange({
+      ...data,
+      todos: [
+        ...manualTodos,
+        ...buildAiTodoSuggestions(data, strategy),
+      ],
+    });
+  };
+
+  return (
+    <section className="todo-page">
+      <div className="panel data-hero">
+        <div>
+          <span>Action system</span>
+          <h2>Split your own tasks from AI-generated next moves.</h2>
+          <p>
+            Manual todos stay at the top. The AI section regenerates ten suggestions from your profile, goals, Royce Data,
+            route, outreach, and opportunity records.
+          </p>
+        </div>
+      </div>
+
+      <section className="panel todo-panel manual-todo-panel">
+        <PanelTitle title="My To-do's" action={`${manualTodos.length} manual`} />
+        <p className="long-press-hint">Add with +. Long-press a card to reveal Delete.</p>
+        <div className="record-list">
+          {manualTodos.length ? (
+            manualTodos.map((todo) => <TodoRecordCard key={todo.id} onRemove={() => removeTodo(todo.id)} todo={todo} />)
+          ) : (
+            <p className="empty-state">No manual to-do yet. Add the next action you already know.</p>
+          )}
+        </div>
+        <form className="data-form compact-form todo-form" onSubmit={addManualTodo}>
+          <input name="title" placeholder="Add my to-do" />
+          <select name="priority" defaultValue="High">
+            <option>High</option>
+            <option>Medium</option>
+            <option>Low</option>
+          </select>
+          <input name="due" placeholder="Due / timing" />
+          <input name="rationale" placeholder="Context / notes" />
+          <button type="submit">+ Add to-do</button>
+        </form>
+      </section>
+
+      <section className="panel todo-panel ai-todo-panel">
+        <PanelTitle title="AI Generated To-do's" action={`${aiTodos.length}/10 generated`} />
+        <div className="ai-todo-header">
+          <p>
+            These are local AI-style suggestions for now. They refresh from your saved profile description, active goals,
+            sponsor campaign, cities, organizations, collaborations, expenses, and concerts.
+          </p>
+          <button onClick={generateAiTodos} type="button">
+            Generate (10)
+          </button>
+        </div>
+        <div className="record-list">
+          {aiTodos.length ? (
+            aiTodos.map((todo) => <TodoRecordCard key={todo.id} onRemove={() => removeTodo(todo.id)} todo={todo} />)
+          ) : (
+            <p className="empty-state">Click Generate (10) to let Royce OS propose the next actions.</p>
+          )}
+        </div>
+      </section>
     </section>
   );
 }
@@ -1528,6 +1752,14 @@ function RoyceDataPage({
                 value={data.profile.updatedAt}
               />
             </label>
+            <label className="profile-description-field">
+              <span>Profile description</span>
+              <textarea
+                onChange={(event) => updateProfile({ description: event.target.value })}
+                placeholder="Paste the detailed starting point: current situation, mission, constraints, priorities, relationships, travel context..."
+                value={data.profile.description}
+              />
+            </label>
           </div>
         </section>
 
@@ -1755,6 +1987,20 @@ function GoalRecordCard({ goal, onRemove }: { goal: GoalRecord; onRemove: () => 
   );
 }
 
+function TodoRecordCard({ todo, onRemove }: { todo: TodoRecord; onRemove: () => void }) {
+  return (
+    <LongPressDeleteCard ariaLabel={`${todo.title} to-do`} className="record-card todo-record" onDelete={onRemove}>
+      <div>
+        <strong>{todo.title}</strong>
+        <small>
+          {todo.source} · {todo.due} · {todo.rationale}
+        </small>
+      </div>
+      <em>{todo.priority}</em>
+    </LongPressDeleteCard>
+  );
+}
+
 function ExpenseRecord({ expense, onRemove }: { expense: MonthlyExpense; onRemove: () => void }) {
   return (
     <LongPressDeleteCard ariaLabel={`${expense.category} expense`} onDelete={onRemove}>
@@ -1851,6 +2097,13 @@ function readGoalPriority(formData: FormData): GoalRecord["priority"] {
   return priorities.includes(value as GoalRecord["priority"]) ? (value as GoalRecord["priority"]) : "High";
 }
 
+function readTodoPriority(formData: FormData): TodoRecord["priority"] {
+  const value = readFormText(formData, "priority", "High");
+  const priorities: TodoRecord["priority"][] = ["High", "Medium", "Low"];
+
+  return priorities.includes(value as TodoRecord["priority"]) ? (value as TodoRecord["priority"]) : "High";
+}
+
 function createRecordId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}`;
 }
@@ -1877,6 +2130,7 @@ function iconFor(label: string) {
     Dashboard: "▦",
     "Royce Data": "◉",
     Goals: "◎",
+    "To-do": "☑",
     "Travel Plan": "♜",
     Budget: "◈",
     Outreach: "✉",

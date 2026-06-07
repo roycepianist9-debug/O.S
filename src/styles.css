@@ -27,7 +27,8 @@ body {
 button,
 a,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -1077,7 +1078,8 @@ h1 {
 
 .data-form label,
 .data-form input,
-.data-form select {
+.data-form select,
+.data-form textarea {
   min-width: 0;
 }
 
@@ -1092,7 +1094,8 @@ h1 {
 }
 
 .data-form input,
-.data-form select {
+.data-form select,
+.data-form textarea {
   width: 100%;
   min-height: 46px;
   padding: 0 14px;
@@ -1100,6 +1103,17 @@ h1 {
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 12px;
   background: rgba(15, 23, 42, 0.76);
+}
+
+.data-form textarea {
+  min-height: 150px;
+  padding: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.profile-description-field {
+  grid-column: 1 / -1;
 }
 
 .data-form button {
@@ -1204,10 +1218,58 @@ h1 {
 }
 
 .goals-page,
+.todo-page,
 .travel-page,
 .section-page {
   display: grid;
   gap: 16px;
+}
+
+.todo-panel {
+  padding: 0 20px 20px;
+}
+
+.manual-todo-panel {
+  min-height: 280px;
+}
+
+.ai-todo-panel {
+  border-color: rgba(34, 211, 238, 0.22);
+  background:
+    linear-gradient(135deg, rgba(8, 145, 178, 0.12), rgba(124, 58, 237, 0.08)),
+    rgba(15, 23, 42, 0.76);
+}
+
+.ai-todo-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  margin-top: 10px;
+}
+
+.ai-todo-header p,
+.empty-state {
+  color: #aab3c9;
+  line-height: 1.5;
+}
+
+.ai-todo-header button {
+  min-height: 46px;
+  padding: 0 18px;
+  color: #ecfeff;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.92), rgba(15, 118, 110, 0.8));
+  box-shadow: 0 18px 42px rgba(8, 145, 178, 0.18);
+}
+
+.todo-record em {
+  color: #67e8f9;
+}
+
+.todo-form button {
+  grid-column: 1 / -1;
 }
 
 .section-card-grid {
@@ -1610,6 +1672,7 @@ h1 {
   .compact-form,
   .strategy-grid,
   .section-card-grid,
+  .ai-todo-header,
   .travel-grid,
   .route-overview-grid,
   .opportunity-tabs-stats,

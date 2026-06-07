@@ -202,6 +202,24 @@ export const cities: City[] = [
     recommendedStayDays: [18, 30],
     notes: "Good bridge city for embassy, university, cultural center, and nonprofit meetings.",
   },
+  {
+    id: "paris",
+    country: "France",
+    city: "Paris",
+    dateRange: "Future route option",
+    monthlyAccommodation: 900,
+    foodBudget: 330,
+    transportBudget: 90,
+    totalMonthlyCost: 1320,
+    buskingScore: 8,
+    sponsorScore: 9,
+    networkScore: 9,
+    safetyScore: 7,
+    visaEase: 6,
+    overallScore: 8.1,
+    recommendedStayDays: [21, 45],
+    notes: "Strong cultural institutions, embassies, foundations, luxury sponsors, and concert networks.",
+  },
 ];
 
 export const organizations: Organization[] = [
@@ -483,4 +501,5 @@ export const routeCoordinates = [
   { id: "bangkok", x: 36, y: 78 },
   { id: "hcmc", x: 48, y: 86 },
   { id: "kuala-lumpur", x: 30, y: 88 },
+  { id: "paris", x: 12, y: 22 },
 ];
