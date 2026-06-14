@@ -1,0 +1,13 @@
+{
+  "name": "Royce OS — Command Center",
+  "short_name": "Royce OS",
+  "description": "Personal operating system for a multi-vertical creative career.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e1117",
+  "theme_color": "#0e1117",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
